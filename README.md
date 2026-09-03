@@ -2,8 +2,16 @@
 
 ## What these tools are
 
-**[Herdr](https://herdr.dev/docs/)** is a terminal multiplexer for coding agents. You run each agent in its
-own pane. Its primary benefits:
+**[Herdr](https://herdr.dev/docs/)** is a terminal multiplexer for coding agents.
+
+A terminal multiplexer runs many terminal sessions inside one window and keeps them alive in a
+background process. You split the window into panes, put a different program in each, and switch
+between them. If you close the window, the programs keep running, and you can reconnect later from
+the same machine or over SSH. `tmux` and `screen` are the classic examples. The value for coding
+agents: one agent per pane, all visible at once, none of them lost when your laptop sleeps or your
+connection drops.
+
+Herdr adds agent awareness on top of that. You run each agent in its own pane. Its primary benefits:
 
 - **Agents keep running.** Herdr is a background server that owns the terminals. Close the client,
   the lid, or the network connection, and the agents continue. You can attach again later.
