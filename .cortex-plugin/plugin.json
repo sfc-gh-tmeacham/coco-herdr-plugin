@@ -1,0 +1,5 @@
+{
+  "name": "herdr",
+  "description": "Herdr integration for Cortex Code: live idle/working/blocked status in the Herdr sidebar, a Herdr control skill, and a $herdr:doctor troubleshooter. No Herdr source changes.",
+  "version": "0.1.0"
+}
