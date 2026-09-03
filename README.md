@@ -159,6 +159,31 @@ to leave:
 
 To check whether a server is running, use `herdr status`.
 
+### Skills
+
+The plugin adds two skills to every CoCo session. Both work only inside a Herdr pane. Type the
+skill name in the CoCo prompt to load it, or list all skills with `/skill list`.
+
+**`$herdr:control`** is Herdr's own agent-control skill, the text that `herdr --skill` prints,
+bundled unchanged. It teaches CoCo the `herdr` CLI so it can split panes, run commands in them,
+start and prompt other agents, read their output, and wait for them to finish. CoCo loads it on its
+own when a prompt mentions Herdr. Example prompts:
+
+> $herdr:control split a pane to the right and run the test suite there. Tell me when it finishes.
+
+> use Herdr to start a Codex agent in a new pane and ask it to review the current diff
+
+> $herdr:control list every agent that is blocked and show me what each one is waiting for
+
+**`$herdr:doctor`** diagnoses the status link between CoCo and Herdr. It checks the `HERDR_*`
+environment, the plugin script, the per-pane event log, and what Herdr reports for the pane, then
+states each check as PASS or FAIL and names one fix. Use it when the sidebar shows no `coco` row,
+or a state that does not match what CoCo is doing:
+
+> $herdr:doctor
+
+> $herdr:doctor Herdr says working but CoCo is waiting for me
+
 ## How it works
 
 Herdr injects `HERDR_ENV=1`, `HERDR_PANE_ID`, and `HERDR_BIN_PATH` into every pane it manages. CoCo
