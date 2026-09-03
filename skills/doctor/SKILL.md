@@ -160,8 +160,10 @@ that also references `herdr-coco-state`. Fix: remove the duplicate entries.
 `herdr.exe`.
 
 **`herdr agent explain` returns `agent_explain_unavailable`.** Expected. That
-command describes screen-detection state only. CoCo reports through a custom
-integration, which has no detection state. Use `agent list` or `pane get`.
+command reports which screen-detection rule matched the pane text. Herdr has no
+detection manifest for `cortex`, and a pane with a `custom:coco` report is not
+screen-detected at all, so there is nothing to explain. Use `agent list`,
+`pane get`, or the event log in step 3.
 
 ## Report format
 

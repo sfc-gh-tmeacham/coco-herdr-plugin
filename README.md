@@ -216,8 +216,11 @@ with `:` in the pane ID replaced by `_`) and compares it with Herdr's view. A li
 `herdr report-agent failed rc=N` in that log means the hook ran but the Herdr call did not succeed;
 check `herdr status` and the Herdr version.
 
-`herdr agent explain <pane>` returns `agent_explain_unavailable` for CoCo panes. That is expected:
-the command describes screen-detection state, and a custom integration has none.
+`herdr agent explain <pane>` returns `agent_explain_unavailable` for CoCo panes. That is expected.
+The command reports which screen-detection rule matched the pane text. Herdr has no detection
+manifest for `cortex`, and once this plugin reports through `custom:coco`, Herdr stops running screen
+rules for the pane. There is no rule or evidence to explain. Use `herdr agent list`, `herdr pane get
+<pane>`, or the plugin's event log instead.
 
 ## What this does not do
 
