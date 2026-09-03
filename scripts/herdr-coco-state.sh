@@ -28,7 +28,8 @@ LAST=$(cat "$SEQ_FILE" 2>/dev/null || echo 0)
 # falls back to whole seconds * 1000. Same-second events get LAST + 1.
 if [ -n "${EPOCHREALTIME:-}" ]; then
   T=${EPOCHREALTIME/,/.}
-  NOW=$(( ${T%.*} * 1000 + 10#${T#*.} / 1000 ))
+  F=${T#*.}000            # pad so a short fraction still yields 3 digits
+  NOW=$(( ${T%.*} * 1000 + 10#${F:0:3} ))
 else
   NOW=$(( $(date +%s 2>/dev/null || echo 0) * 1000 ))
 fi
@@ -70,7 +71,7 @@ else
   EVENT=$(simple_field hook_event_name)
   SESSION_ID=$(simple_field session_id)
   TOOL_NAME=$(simple_field tool_name)
-  MESSAGE='(python3 absent, message not parsed)'
+  MESSAGE='# python3 absent, message not parsed'
 fi
 
 # Values that become argv elements must not look like options.

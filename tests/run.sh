@@ -11,19 +11,36 @@ INJ='x; rm -rf / && echo $(whoami) `id` | cat'
 kinds="sh"
 if command -v pwsh >/dev/null 2>&1; then kinds="sh ps1"; else echo "SKIP ps1 (pwsh not installed)"; fi
 
+# The .sh suite runs once per bash found, so both the EPOCHREALTIME (bash 5)
+# and the date-based (bash 3.2) clock branches are covered where possible.
+BASHES=""
+for b in /bin/bash /opt/homebrew/bin/bash /usr/local/bin/bash /usr/bin/bash; do
+  [ -x "$b" ] && BASHES="$BASHES $b"
+done
+
+# Unit check of the EPOCHREALTIME arithmetic, copied from the script, across
+# fraction lengths a real bash may emit (bash 5 gives 6 digits; zsh gives 10).
+for pair in 1788454687.541790:1788454687541 1788454687.5417900085:1788454687541 1788454687.5:1788454687500 1788454687.000123:1788454687000; do
+  t=${pair%%:*}; want=${pair##*:}
+  F=${t#*.}000; NOW=$(( ${t%.*} * 1000 + 10#${F:0:3} ))
+  check "$NOW" "$want" "clock arithmetic for fraction '${t#*.}'"
+done
+
 for kind in $kinds; do
+ for BASH_BIN in $( [ "$kind" = sh ] && echo $BASHES || echo pwsh ); do
+  [ "$kind" = sh ] && echo "== sh via $BASH_BIN ($($BASH_BIN -c 'echo $BASH_VERSION'))"
   T=$(mktemp -d); STUB="$T/stub.sh"; ARGV="$T/argv.log"
   printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done >> %s\nprintf -- "--\\n" >> %s\n[ -f %s/fail ] && exit 3\nexit 0\n' "$ARGV" "$ARGV" "$T" > "$STUB"; chmod +x "$STUB"
   export TMPDIR="$T"
   run() { # $1 payload, $2 label, $3 optional extra env
-    if [ "$kind" = sh ]; then printf '%s' "$1" | env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_BIN_PATH="$STUB" ${3:-} bash "$R/scripts/herdr-coco-state.sh"
+    if [ "$kind" = sh ]; then printf '%s' "$1" | env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_BIN_PATH="$STUB" ${3:-} "$BASH_BIN" "$R/scripts/herdr-coco-state.sh"
     else printf '%s' "$1" | env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_BIN_PATH="$STUB" ${3:-} pwsh -NoProfile -File "$R/scripts/herdr-coco-state.ps1"; fi
     check "$?" "0" "$kind: exit 0 ($2)"
   }
   echo "== $kind"
 
   # No-op guard: no HERDR_* vars, nothing written.
-  if [ "$kind" = sh ]; then printf '{"hook_event_name":"Stop"}' | bash "$R/scripts/herdr-coco-state.sh"; else printf '{"hook_event_name":"Stop"}' | pwsh -NoProfile -File "$R/scripts/herdr-coco-state.ps1"; fi
+  if [ "$kind" = sh ]; then printf '{"hook_event_name":"Stop"}' | "$BASH_BIN" "$R/scripts/herdr-coco-state.sh"; else printf '{"hook_event_name":"Stop"}' | pwsh -NoProfile -File "$R/scripts/herdr-coco-state.ps1"; fi
   check "$?" "0" "$kind: exit 0 outside Herdr"
   check "$(ls "$T" | grep -c herdr-coco)" "0" "$kind: no files written outside Herdr"
 
@@ -56,6 +73,9 @@ for kind in $kinds; do
   prev=0; mono=yes; for s in $seqs; do [ "$s" -gt "$prev" ] || mono=no; prev=$s; done
   check "$mono" "yes" "$kind: seq strictly increasing"
   check "${#prev}" "13" "$kind: seq is a 13-digit ms timestamp"
+  now_ms=$(( $(date +%s) * 1000 )); first=$(printf '%s\n' "$seqs" | head -1)
+  [ "$first" -gt $(( now_ms - 120000 )) ] && [ "$first" -lt $(( now_ms + 120000 )) ] && ok=yes || ok=no
+  check "$ok" "yes" "$kind: seq within 2 min of wall clock"
   check "$(grep -c ' \[plugin\]$' "$LOG")" "10" "$kind: one log line per event"
   check "$(grep -c 'PreToolUse tool=bash' "$LOG")" "1" "$kind: tool name logged"
   check "$(grep -c 'Notification message: x; rm -rf' "$LOG")" "1" "$kind: notification message logged"
@@ -67,9 +87,9 @@ for kind in $kinds; do
     check "$(stat -f %Lp "$T/herdr-coco" 2>/dev/null || stat -c %a "$T/herdr-coco")" "700" "sh: log dir mode 700"
     # No python3 on PATH: the fallback parser must still produce correct calls.
     # The bin dir holds every external the .sh calls; python3 is left out.
-    mkdir -p "$T/bin"; for b in bash cat date wc tail mv mkdir grep head sed; do ln -s "$(command -v $b)" "$T/bin/$b"; done
+    mkdir -p "$T/bin"; for b in cat date wc tail mv mkdir grep head sed; do ln -s "$(command -v $b)" "$T/bin/$b"; done; ln -s "$BASH_BIN" "$T/bin/bash"
     : > "$ARGV"; rm -f "$SEQF"
-    printf '{"hook_event_name":"PermissionRequest","session_id":"s2","tool_name":"bash","tool_input":{"command":"ls"}}' | env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_BIN_PATH="$STUB" PATH="$T/bin" "$T/bin/bash" "$R/scripts/herdr-coco-state.sh"
+    printf '{"hook_event_name":"PermissionRequest","session_id":"s2","tool_name":"bash","tool_input":{"command":"ls"}}' | env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_BIN_PATH="$STUB" PATH="$T/bin" "$BASH_BIN" "$R/scripts/herdr-coco-state.sh"
     check "$?" "0" "sh: exit 0 without python3"
     check "$(grep -A1 -x -- '--state' "$ARGV" | tail -1)" "blocked" "sh: state parsed without python3"
     check "$(grep -c '^s2$' "$ARGV")" "1" "sh: session id parsed without python3"
@@ -77,5 +97,6 @@ for kind in $kinds; do
     check "$(cat "$SEQF" | wc -c | tr -d ' ')" "13" "sh: 13-digit seq without python3"
   fi
   rm -rf "$T"
+ done
 done
 [ $fail = 0 ] && echo "ALL PASS" || { echo "SOME FAIL"; exit 1; }

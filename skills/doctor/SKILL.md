@@ -145,6 +145,11 @@ it is the only event that fires when CoCo asks the user a question.
 did not fire or is not configured. Check the plugin `hooks/hooks.json` contains
 a `Notification` entry.
 
+**Permission message says `awaiting approval` instead of a tool name, or a log
+line reads `Notification message: # python3 absent`.** On macOS/Linux the hook
+is running its `grep` fallback because `python3` is not on `PATH`. State
+reporting still works. Install `python3` for full payload parsing.
+
 **Two rows for the same pane, or status flickers.** Two hook configurations are
 reporting. Check for another hooks file (for example `~/.snowflake/cortex/hooks.json`)
 that also references `herdr-coco-state`. Fix: remove the duplicate entries.
