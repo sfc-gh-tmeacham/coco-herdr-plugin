@@ -62,6 +62,17 @@ try {
     if ($lines.Count -gt 400) { Set-Content -LiteralPath $LogFile -Value ($lines | Select-Object -Last 200) }
 } catch {}
 
+function Invoke-Herdr {
+    # Runs Herdr and records a failure in the log so $herdr:doctor can see it.
+    # The exit code is never propagated.
+    param([string[]]$HerdrArgs)
+    $rc = 0
+    try { & $HerdrBin @HerdrArgs *> $null; $rc = $LASTEXITCODE } catch { $rc = -1 }
+    if ($rc -ne 0) {
+        try { Add-Content -LiteralPath $LogFile -Value "$Stamp   herdr $($HerdrArgs[1]) failed rc=$rc" } catch {}
+    }
+}
+
 function Send-Report {
     # $State = Herdr state, $Message = optional text (may contain tool output).
     param([string]$State, [string]$Message = '')
@@ -71,7 +82,7 @@ function Send-Report {
     if ($SessionId) { $a += @('--agent-session-id', $SessionId) }
     # $Message is always one argv element. PowerShell never re-parses it.
     if ($Message) { $a += @('--message', $Message) }
-    try { & $HerdrBin @a *> $null } catch {}
+    Invoke-Herdr $a
 }
 
 switch ($Event) {
@@ -99,7 +110,7 @@ switch ($Event) {
         # applies the same --seq rule as report-agent: a value not above the
         # last accepted one is ignored.
         $a = @('pane', 'release-agent', $Pane, '--source', $Source, '--agent', $Agent, '--seq', "$Seq")
-        try { & $HerdrBin @a *> $null } catch {}
+        Invoke-Herdr $a
     }
     default { }
 }

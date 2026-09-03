@@ -69,8 +69,9 @@ ls -l "<root>/scripts/herdr-coco-state.sh"
 Get-Item "<root>\scripts\herdr-coco-state.ps1"
 ```
 
-If missing or (on macOS/Linux) not executable: the plugin is not installed
-correctly. Fix: `chmod +x` the file, or reinstall the plugin.
+If missing or (on macOS/Linux) not executable: the plugin copy is damaged. Fix:
+`cortex plugin update herdr`, which re-fetches the files with their modes from
+git. Do not `chmod` the managed copy; the next update overwrites it.
 
 ### 3. Are hooks firing?
 
