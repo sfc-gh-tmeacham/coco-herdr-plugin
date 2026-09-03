@@ -51,7 +51,7 @@ If any value is `unset` or empty: this CoCo session was not started inside a Her
 The script exits silently by design. Fix: start `cortex` from a shell inside a
 Herdr pane. Stop here.
 
-### 2. Is the plugin script present and executable?
+### 2. Is the plugin script present?
 
 Find the plugin root first. It is the `Path:` line for `herdr-coco-plugin` in:
 
@@ -69,9 +69,9 @@ ls -l "<root>/scripts/herdr-coco-state.sh"
 Get-Item "<root>\scripts\herdr-coco-state.ps1"
 ```
 
-If missing or (on macOS/Linux) not executable: the plugin copy is damaged. Fix:
-`cortex plugin update herdr-coco-plugin`, which re-fetches the files with their modes from
-git. Do not `chmod` the managed copy; the next update overwrites it.
+If missing: the plugin copy is damaged. Fix: `cortex plugin update herdr-coco-plugin`.
+The script does not need the executable bit; the hook runs it as `bash <script>`, so a
+catalog install (which drops file modes) works the same as a git install.
 
 ### 3. Are hooks firing?
 

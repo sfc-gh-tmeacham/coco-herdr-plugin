@@ -2,49 +2,49 @@
   "hooks": {
     "SessionStart": [
       { "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ],
     "UserPromptSubmit": [
       { "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ],
     "PreToolUse": [
       { "matcher": ".*", "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ],
     "PostToolUse": [
       { "matcher": ".*", "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ],
     "PermissionRequest": [
       { "matcher": ".*", "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ],
     "Notification": [
       { "matcher": ".*", "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ],
     "Stop": [
       { "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ],
     "SessionEnd": [
       { "hooks": [
-        { "type": "command", "platform": ["darwin", "linux"], "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
+        { "type": "command", "platform": ["darwin", "linux"], "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh\"", "timeout": 5 },
         { "type": "command", "platform": ["win32"], "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\scripts\\herdr-coco-state.ps1\"", "timeout": 5 }
       ] }
     ]
