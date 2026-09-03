@@ -57,7 +57,7 @@ $ToolName = Get-Field 'tool_name'
 if ($SessionId -notmatch '^[A-Za-z0-9_.:][A-Za-z0-9_.:-]*$') { $SessionId = '' }
 if ($ToolName -notmatch '^[A-Za-z0-9_.:][A-Za-z0-9_.:-]*$') { $ToolName = '' }
 
-# Per-pane event log for troubleshooting ($herdr:doctor reads it).
+# Per-pane event log for troubleshooting ($herdr-coco-plugin:doctor reads it).
 $LogFile = Join-Path $SeqDir "events.$PaneFile.log"
 $Stamp = Get-Date -Format 'HH:mm:ss'
 try { Add-Content -LiteralPath $LogFile -Value "$Stamp $Event tool=$ToolName [plugin]" } catch {}
@@ -67,7 +67,7 @@ try {
 } catch {}
 
 function Invoke-Herdr {
-    # Runs Herdr and records a failure in the log so $herdr:doctor can see it.
+    # Runs Herdr and records a failure in the log so $herdr-coco-plugin:doctor can see it.
     # The exit code is never propagated. Callers always pass "pane <subcommand>"
     # first, so $HerdrArgs[1] is the subcommand named in the log line.
     # $LASTEXITCODE is reset first: a binary that fails to launch does not set

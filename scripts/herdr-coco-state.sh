@@ -80,13 +80,13 @@ case "$TOOL_NAME"  in *[!A-Za-z0-9_.:-]*|-*) TOOL_NAME= ;; esac
 
 [ -n "$EVENT" ] || EVENT="${1:-}"
 
-# Per-pane event log for troubleshooting ($herdr:doctor reads it).
+# Per-pane event log for troubleshooting ($herdr-coco-plugin:doctor reads it).
 LOG_FILE="$SEQ_DIR/events.$HERDR_PANE_ID.log"
 printf '%s %s tool=%s [plugin]\n' "$(date '+%H:%M:%S')" "$EVENT" "$TOOL_NAME" >> "$LOG_FILE" 2>/dev/null || true
 [ "$(wc -l < "$LOG_FILE" 2>/dev/null || echo 0)" -gt 400 ] && tail -n 200 "$LOG_FILE" > "$LOG_FILE.tmp" 2>/dev/null && mv "$LOG_FILE.tmp" "$LOG_FILE" 2>/dev/null
 
 herdr_call() {
-  # Runs Herdr and records a failure in the log so $herdr:doctor can see it.
+  # Runs Herdr and records a failure in the log so $herdr-coco-plugin:doctor can see it.
   # The exit code is never propagated. Callers always pass "pane <subcommand>"
   # first, so $2 is the subcommand named in the log line.
   local rc=0

@@ -53,7 +53,7 @@ Herdr pane. Stop here.
 
 ### 2. Is the plugin script present and executable?
 
-Find the plugin root first. It is the `Path:` line for `herdr` in:
+Find the plugin root first. It is the `Path:` line for `herdr-coco-plugin` in:
 
 ```bash
 cortex plugin list
@@ -70,7 +70,7 @@ Get-Item "<root>\scripts\herdr-coco-state.ps1"
 ```
 
 If missing or (on macOS/Linux) not executable: the plugin copy is damaged. Fix:
-`cortex plugin update herdr`, which re-fetches the files with their modes from
+`cortex plugin update herdr-coco-plugin`, which re-fetches the files with their modes from
 git. Do not `chmod` the managed copy; the next update overwrites it.
 
 ### 3. Are hooks firing?

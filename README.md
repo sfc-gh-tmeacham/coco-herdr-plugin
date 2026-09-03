@@ -1,4 +1,4 @@
-# coco-herdr-plugin
+# coco-herdr-coco-plugin
 
 ## What these tools are
 
@@ -33,8 +33,8 @@ It reports CoCo's state to Herdr through a hook, and it bundles two skills.
 | Component | What it does |
 | --- | --- |
 | `hooks/hooks.json` + `scripts/herdr-coco-state.sh` (macOS, Linux) / `scripts/herdr-coco-state.ps1` (Windows) | Reports CoCo's live state to Herdr: `idle`, `working`, `blocked`, `done`. The CoCo pane appears in the Herdr sidebar and in `herdr agent list` as agent `coco`. |
-| `skills/control` | Herdr's own agent-control skill (`herdr --skill`), bundled unchanged, so a CoCo session can inspect and drive other Herdr panes. Invoke with `$herdr:control`. |
-| `skills/doctor` | Diagnoses a missing or wrong status. Checks the environment, the hook event log, and what Herdr reports, then names the fix. Invoke with `$herdr:doctor`. |
+| `skills/control` | Herdr's own agent-control skill (`herdr --skill`), bundled unchanged, so a CoCo session can inspect and drive other Herdr panes. Invoke with `$herdr-coco-plugin:control`. |
+| `skills/doctor` | Diagnoses a missing or wrong status. Checks the environment, the hook event log, and what Herdr reports, then names the fix. Invoke with `$herdr-coco-plugin:doctor`. |
 
 ## Quick start
 
@@ -45,10 +45,10 @@ not install either one.
 1. Install the plugin:
 
    ```bash
-   cortex plugin install sfc-gh-tmeacham/coco-herdr-plugin
+   cortex plugin install sfc-gh-tmeacham/coco-herdr-coco-plugin
    ```
 
-2. Confirm that `herdr` is listed and active:
+2. Confirm that `herdr-coco-plugin` is listed and active:
 
    ```bash
    cortex plugin list
@@ -97,19 +97,19 @@ There are two sources: GitHub, and the Snowflake Skills & Plugins catalog inside
 ### From GitHub
 
 ```bash
-cortex plugin install sfc-gh-tmeacham/coco-herdr-plugin
+cortex plugin install sfc-gh-tmeacham/coco-herdr-coco-plugin
 ```
 
 This clones the repository into `~/.snowflake/cortex/plugins/` and registers it in
 `registry.json` there. Confirm with `cortex plugin list`. To get a later version, run
-`cortex plugin update herdr`.
+`cortex plugin update herdr-coco-plugin`.
 
 ### From the Snowflake catalog
 
 If someone in your Snowflake account has shared this plugin to the
 [Skills & Plugins catalog](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-plugins),
 you can install it from there. Every shared plugin has a catalog URI of the form
-`snow://skill_catalog/<DB>.<SCHEMA>.HERDR`, where `<DB>` and `<SCHEMA>` belong to the person who
+`snow://skill_catalog/<DB>.<SCHEMA>.HERDR_COCO_PLUGIN`, where `<DB>` and `<SCHEMA>` belong to the person who
 shared it (for example `USER$<NAME>.SKILL_SHARING`). Any of these paths works:
 
 - **Ask CoCo.** In a CoCo session, say `find the herdr plugin in the catalog`. CoCo has a bundled
@@ -119,14 +119,14 @@ shared it (for example `USER$<NAME>.SKILL_SHARING`). Any of these paths works:
 
   ```bash
   cortex plugin find herdr -c <connection>
-  cortex plugin install snow://skill_catalog/<DB>.<SCHEMA>.HERDR -c <connection>
+  cortex plugin install snow://skill_catalog/<DB>.<SCHEMA>.HERDR_COCO_PLUGIN -c <connection>
   ```
 
-- **Snowsight.** Open **AI & ML > Skills & Plugins**, find `HERDR`, and copy its catalog URI.
+- **Snowsight.** Open **AI & ML > Skills & Plugins**, find `HERDR_COCO_PLUGIN`, and copy its catalog URI.
   Paste the URI into a CoCo session, or into **Agent Settings > Plugins** in CoCo Desktop.
 
 A catalog install is a snapshot of the version the sharer published. Ask the sharer to re-share
-when a new version lands, then run `cortex plugin update herdr`.
+when a new version lands, then run `cortex plugin update herdr-coco-plugin`.
 
 ### Local development
 
@@ -194,25 +194,25 @@ To check whether a server is running, use `herdr status`.
 The plugin adds two skills to every CoCo session. Both work only inside a Herdr pane. Type the
 skill name in the CoCo prompt to load it, or list all skills with `/skill list`.
 
-**`$herdr:control`** is Herdr's own agent-control skill, the text that `herdr --skill` prints,
+**`$herdr-coco-plugin:control`** is Herdr's own agent-control skill, the text that `herdr --skill` prints,
 bundled unchanged. It teaches CoCo the `herdr` CLI so it can split panes, run commands in them,
 start and prompt other agents, read their output, and wait for them to finish. CoCo loads it on its
 own when a prompt mentions Herdr. Example prompts:
 
-> $herdr:control split a pane to the right and run the test suite there. Tell me when it finishes.
+> $herdr-coco-plugin:control split a pane to the right and run the test suite there. Tell me when it finishes.
 
 > use Herdr to start a Codex agent in a new pane and ask it to review the current diff
 
-> $herdr:control list every agent that is blocked and show me what each one is waiting for
+> $herdr-coco-plugin:control list every agent that is blocked and show me what each one is waiting for
 
-**`$herdr:doctor`** diagnoses the status link between CoCo and Herdr. It checks the `HERDR_*`
+**`$herdr-coco-plugin:doctor`** diagnoses the status link between CoCo and Herdr. It checks the `HERDR_*`
 environment, the plugin script, the per-pane event log, and what Herdr reports for the pane, then
 states each check as PASS or FAIL and names one fix. Use it when the sidebar shows no `coco` row,
 or a state that does not match what CoCo is doing:
 
-> $herdr:doctor
+> $herdr-coco-plugin:doctor
 
-> $herdr:doctor Herdr says working but CoCo is waiting for me
+> $herdr-coco-plugin:doctor Herdr says working but CoCo is waiting for me
 
 ## How it works
 
@@ -265,7 +265,7 @@ Two details matter and were both found by live testing:
 
 ## Troubleshooting
 
-Run `$herdr:doctor` inside the CoCo session. It reads the per-pane event log at
+Run `$herdr-coco-plugin:doctor` inside the CoCo session. It reads the per-pane event log at
 `${TMPDIR:-/tmp}/herdr-coco/events.<pane>.log` (Windows: `%TEMP%\herdr-coco\events.<pane>.log`,
 with `:` in the pane ID replaced by `_`) and compares it with Herdr's view. A line of the form
 `herdr report-agent failed rc=N` in that log means the hook ran but the Herdr call did not succeed;
