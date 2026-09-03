@@ -92,7 +92,9 @@ session. You must install both tools first:
 
 ## Install
 
-Install from GitHub with the CoCo CLI:
+There are two sources: GitHub, and the Snowflake Skills & Plugins catalog inside your account.
+
+### From GitHub
 
 ```bash
 cortex plugin install sfc-gh-tmeacham/coco-herdr-plugin
@@ -102,8 +104,36 @@ This clones the repository into `~/.snowflake/cortex/plugins/` and registers it 
 `registry.json` there. Confirm with `cortex plugin list`. To get a later version, run
 `cortex plugin update herdr`.
 
-To work on the plugin locally without installing it, clone the repository and start CoCo with
+### From the Snowflake catalog
+
+If someone in your Snowflake account has shared this plugin to the
+[Skills & Plugins catalog](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-plugins),
+you can install it from there. Every shared plugin has a catalog URI of the form
+`snow://skill_catalog/<DB>.<SCHEMA>.HERDR`, where `<DB>` and `<SCHEMA>` belong to the person who
+shared it (for example `USER$<NAME>.SKILL_SHARING`). Any of these paths works:
+
+- **Ask CoCo.** In a CoCo session, say `find the herdr plugin in the catalog`. CoCo has a bundled
+  skill that searches the catalog, confirms the match, and installs it.
+- **CoCo CLI.** Search, then install by catalog URI. The catalog is per Snowflake account, so
+  add `-c <connection>` if your default connection points at a different account:
+
+  ```bash
+  cortex plugin find herdr -c <connection>
+  cortex plugin install snow://skill_catalog/<DB>.<SCHEMA>.HERDR -c <connection>
+  ```
+
+- **Snowsight.** Open **AI & ML > Skills & Plugins**, find `HERDR`, and copy its catalog URI.
+  Paste the URI into a CoCo session, or into **Agent Settings > Plugins** in CoCo Desktop.
+
+A catalog install is a snapshot of the version the sharer published. Ask the sharer to re-share
+when a new version lands, then run `cortex plugin update herdr`.
+
+### Local development
+
+To work on the plugin without installing it, clone the repository and start CoCo with
 `cortex --plugin-dir <path-to-clone>`.
+
+### After any install
 
 Hook configuration is read once, when a CoCo session starts. A CoCo session that is already running
 does not see a new plugin. Start a **new** `cortex` session inside a Herdr pane after installing, or
