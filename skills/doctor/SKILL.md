@@ -11,9 +11,14 @@ findings and a fix.
 ## How the link works
 
 1. Herdr starts the pane with `HERDR_ENV=1`, `HERDR_PANE_ID`, `HERDR_BIN_PATH`.
-2. On each hook event, `${CLAUDE_PLUGIN_ROOT}/scripts/herdr-coco-state.sh` runs.
-3. The script appends one line to `${TMPDIR:-/tmp}/herdr-coco/events.<pane>.log`
-   and calls `herdr pane report-agent <pane> --source custom:coco --agent coco`.
+2. On each hook event, CoCo runs the plugin script for the current platform:
+   `scripts/herdr-coco-state.sh` on macOS and Linux, `scripts/herdr-coco-state.ps1`
+   on Windows.
+3. The script appends one line to the event log and calls
+   `herdr pane report-agent <pane> --source custom:coco --agent coco`.
+   - macOS/Linux log: `${TMPDIR:-/tmp}/herdr-coco/events.<pane>.log`
+   - Windows log: `%TEMP%\herdr-coco\events.<pane>.log`, where `:` in the pane
+     ID is replaced by `_` (for example `events.w1_p1.log`).
 4. Herdr accepts the report only if `--seq` is higher than the last one it
    accepted for that pane and source.
 
@@ -29,7 +34,8 @@ Event to state mapping:
 
 ## Steps
 
-Run each check with `bash`. Stop at the first failing check and report it.
+Run each check with `bash` on macOS and Linux, or with PowerShell on Windows.
+Stop at the first failing check and report it.
 
 ### 1. Am I inside Herdr?
 
@@ -37,7 +43,11 @@ Run each check with `bash`. Stop at the first failing check and report it.
 echo "HERDR_ENV=${HERDR_ENV:-unset} HERDR_PANE_ID=${HERDR_PANE_ID:-unset} HERDR_BIN_PATH=${HERDR_BIN_PATH:-unset}"
 ```
 
-If any value is `unset`: this CoCo session was not started inside a Herdr pane.
+```powershell
+"HERDR_ENV=$env:HERDR_ENV HERDR_PANE_ID=$env:HERDR_PANE_ID HERDR_BIN_PATH=$env:HERDR_BIN_PATH"
+```
+
+If any value is `unset` or empty: this CoCo session was not started inside a Herdr pane.
 The script exits silently by design. Fix: start `cortex` from a shell inside a
 Herdr pane. Stop here.
 
@@ -47,8 +57,12 @@ Herdr pane. Stop here.
 ls -l "${CLAUDE_PLUGIN_ROOT:-$HOME/.snowflake/cortex/plugins/herdr}/scripts/herdr-coco-state.sh"
 ```
 
-If missing or not executable: the plugin is not installed correctly. Fix:
-`chmod +x` the file, or reinstall the plugin.
+```powershell
+Get-Item "$env:USERPROFILE\.snowflake\cortex\plugins\herdr\scripts\herdr-coco-state.ps1"
+```
+
+If missing or (on macOS/Linux) not executable: the plugin is not installed
+correctly. Fix: `chmod +x` the file, or reinstall the plugin.
 
 ### 3. Are hooks firing?
 
@@ -56,8 +70,12 @@ If missing or not executable: the plugin is not installed correctly. Fix:
 tail -20 "${TMPDIR:-/tmp}/herdr-coco/events.${HERDR_PANE_ID}.log"
 ```
 
+```powershell
+Get-Content "$env:TEMP\herdr-coco\events.$($env:HERDR_PANE_ID -replace ':','_').log" -Tail 20
+```
+
 If the file does not exist: no hook has run in this pane. Either the plugin is
-disabled in Agent Settings > Plugins, or CoCo was started before the plugin was
+disabled (`cortex plugin list`), or CoCo was started before the plugin was
 installed. Hook configuration is read once at session start. Fix: enable the
 plugin, then restart CoCo.
 
@@ -69,6 +87,11 @@ normal.
 ```bash
 "$HERDR_BIN_PATH" agent list
 "$HERDR_BIN_PATH" pane get "$HERDR_PANE_ID"
+```
+
+```powershell
+& $env:HERDR_BIN_PATH agent list
+& $env:HERDR_BIN_PATH pane get $env:HERDR_PANE_ID
 ```
 
 Compare the `agent_status` with the last event in the log:
@@ -89,9 +112,13 @@ the reports as stale. Check the sequence:
 cat "${TMPDIR:-/tmp}/herdr-coco/seq.${HERDR_PANE_ID}"
 ```
 
+```powershell
+Get-Content "$env:TEMP\herdr-coco\seq.$($env:HERDR_PANE_ID -replace ':','_')"
+```
+
 The value should be a 13-digit millisecond timestamp. If it is a small integer,
 an old copy of the script is running. Fix: confirm `hooks.json` points at the
-plugin script, not an older user-level copy.
+plugin script.
 
 **Status is `blocked` but CoCo is visibly working.** Look for a `Notification`
 line in the log with its payload. If it was not preceded by
@@ -104,8 +131,13 @@ did not fire or is not configured. Check the plugin `hooks/hooks.json` contains
 a `Notification` entry.
 
 **Two rows for the same pane, or status flickers.** Two hook configurations are
-reporting. Check for a user-level `~/.snowflake/cortex/hooks.json` that also
-references `herdr-coco-state.sh`. Fix: remove the duplicate entries.
+reporting. Check for another hooks file (for example `~/.snowflake/cortex/hooks.json`)
+that also references `herdr-coco-state`. Fix: remove the duplicate entries.
+
+**Windows: hooks never fire.** CoCo runs the hook as
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File <script>.ps1`. Check that
+`powershell.exe` is on `PATH` and that `$env:HERDR_BIN_PATH` points at an existing
+`herdr.exe`.
 
 **`herdr agent explain` returns `agent_explain_unavailable`.** Expected. That
 command describes screen-detection state only. CoCo reports through a custom

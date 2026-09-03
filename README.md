@@ -32,7 +32,7 @@ It reports CoCo's state to Herdr through a hook, and it bundles two skills.
 
 | Component | What it does |
 | --- | --- |
-| `hooks/hooks.json` + `scripts/herdr-coco-state.sh` | Reports CoCo's live state to Herdr: `idle`, `working`, `blocked`, `done`. The CoCo pane appears in the Herdr sidebar and in `herdr agent list` as agent `coco`. |
+| `hooks/hooks.json` + `scripts/herdr-coco-state.sh` (macOS, Linux) / `scripts/herdr-coco-state.ps1` (Windows) | Reports CoCo's live state to Herdr: `idle`, `working`, `blocked`, `done`. The CoCo pane appears in the Herdr sidebar and in `herdr agent list` as agent `coco`. |
 | `skills/control` | Herdr's own agent-control skill (`herdr --skill`), bundled unchanged, so a CoCo session can inspect and drive other Herdr panes. Invoke with `$herdr:control`. |
 | `skills/doctor` | Diagnoses a missing or wrong status. Checks the environment, the hook event log, and what Herdr reports, then names the fix. Invoke with `$herdr:doctor`. |
 
@@ -80,8 +80,13 @@ session. You must install both tools first:
 
 - [Herdr](https://herdr.dev/docs/install/) 0.8.2 (tested; the `report-agent` CLI surface is version-sensitive)
 - [CoCo CLI](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) v1.1.76 or later (tested on 1.1.78)
-- macOS or Linux. `python3` on `PATH`.
-- Windows is not supported. Herdr uses a named pipe there and the script is POSIX shell.
+- macOS or Linux: `python3` on `PATH`.
+- Windows (native): Windows PowerShell 5.1 or PowerShell 7. The hook runs as a `.ps1` script.
+  See [Herdr on Windows](https://herdr.dev/docs/windows-beta/) and the
+  [CoCo CLI Windows install](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli#windows-native).
+  The Windows path is verified against a stub only, not on a Windows machine. See
+  [Verification status](#verification-status).
+- WSL works as Linux.
 
 ## Install
 
@@ -155,8 +160,10 @@ To check whether a server is running, use `herdr status`.
 ## How it works
 
 Herdr injects `HERDR_ENV=1`, `HERDR_PANE_ID`, and `HERDR_BIN_PATH` into every pane it manages. CoCo
-runs the plugin's hook script on each lifecycle event and passes the event as JSON on stdin. The
-script maps the event to a Herdr state and calls:
+runs the plugin's hook script on each lifecycle event and passes the event as JSON on stdin. Each
+hook entry in `hooks/hooks.json` carries a `platform` list, so CoCo runs `herdr-coco-state.sh` on
+macOS and Linux and `herdr-coco-state.ps1` on Windows. Both scripts map the event to a Herdr state
+and call:
 
 ```
 herdr pane report-agent <pane> --source custom:coco --agent coco --state <state> --seq <n>
@@ -189,14 +196,16 @@ Two details matter and were both found by live testing:
 - The script exits immediately unless all three `HERDR_*` variables are present. Outside Herdr it
   is a no-op.
 - It calls `"$HERDR_BIN_PATH"` directly, never a `herdr` found on `PATH`.
-- Hook payload text (which can contain tool output) is parsed by Python and passed to Herdr as a
-  single quoted argument. An injection payload was tested and stayed inert.
+- Hook payload text (which can contain tool output) is parsed as JSON (by Python on macOS and
+  Linux, by `ConvertFrom-Json` on Windows) and passed to Herdr as a single argument. An injection
+  payload was tested and stayed inert.
 - It always exits 0. A Herdr outage cannot block a CoCo turn.
 
 ## Troubleshooting
 
 Run `$herdr:doctor` inside the CoCo session. It reads the per-pane event log at
-`${TMPDIR:-/tmp}/herdr-coco/events.<pane>.log` and compares it with Herdr's view.
+`${TMPDIR:-/tmp}/herdr-coco/events.<pane>.log` (Windows: `%TEMP%\herdr-coco\events.<pane>.log`,
+with `:` in the pane ID replaced by `_`) and compares it with Herdr's view.
 
 `herdr agent explain <pane>` returns `agent_explain_unavailable` for CoCo panes. That is expected:
 the command describes screen-detection state, and a custom integration has none.
@@ -218,9 +227,10 @@ These need a change to Herdr's Rust source and are out of scope:
 | Herdr accepts the calls and updates the pane | Verified against a live Herdr 0.8.2 server |
 | `idle`, `working`, `blocked` (permission), `blocked` (question), `Stop` from a real CoCo session | Verified |
 | Two CoCo panes reporting independently | Verified |
-| Row removed on real `/exit` | Verified by hand-driven `SessionEnd`; not yet from a real exit |
+| Row removed on real `/exit` | Verified |
 | Persistence across closing the Herdr client | Verified |
-| Plugin-packaged hook fires | Not yet tested |
+| Windows hook (`herdr-coco-state.ps1`) produces correct calls for every event | Verified against a stub with PowerShell 7 on macOS |
+| Windows hook on a native Windows install of Herdr and CoCo | Not yet tested |
 
 ## License
 
