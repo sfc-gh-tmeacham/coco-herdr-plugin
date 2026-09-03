@@ -112,10 +112,10 @@ This clones the repository into `~/.snowflake/cortex/plugins/` and registers it 
 `registry.json` there. Confirm with `cortex plugin list`. To get a later version, run
 `cortex plugin update coco-herdr-plugin`.
 
-### From the Snowflake catalog
+### From the Snowflake Skills and Plugins catalog
 
 If someone in your Snowflake account has shared this plugin to the
-[Skills & Plugins catalog](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-plugins),
+[Skills and Plugins catalog](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-snowsight/skills-and-plugins),
 you can install it from there. Every shared plugin has a catalog URI of the form
 `snow://skill_catalog/<DB>.<SCHEMA>.COCO_HERDR_PLUGIN`, where `<DB>` and `<SCHEMA>` belong to the person who
 shared it (for example `USER$<NAME>.SKILL_SHARING`). Any of these paths works:
