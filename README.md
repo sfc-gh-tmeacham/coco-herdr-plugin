@@ -133,8 +133,12 @@ shared it (for example `USER$<NAME>.SKILL_SHARING`). Any of these paths works:
 - **Snowsight.** Open **AI & ML > Skills & Plugins**, find `HERDR_COCO_PLUGIN`, and copy its catalog URI.
   Paste the URI into a CoCo session, or into **Agent Settings > Plugins** in CoCo Desktop.
 
-A catalog install is a snapshot of the version the sharer published. Ask the sharer to re-share
-when a new version lands, then run `cortex plugin update herdr-coco-plugin`.
+A catalog install tracks the catalog entry, not GitHub. When the sharer publishes a new version, pull
+it with:
+
+```bash
+cortex plugin update herdr-coco-plugin -c <connection>
+```
 
 ### Local development
 
