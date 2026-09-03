@@ -28,7 +28,7 @@ done
 
 for kind in $kinds; do
  for BASH_BIN in $( [ "$kind" = sh ] && echo $BASHES || echo pwsh ); do
-  [ "$kind" = sh ] && echo "== sh via $BASH_BIN ($($BASH_BIN -c 'echo $BASH_VERSION'))"
+  if [ "$kind" = sh ]; then echo "== sh via $BASH_BIN ($($BASH_BIN -c 'echo $BASH_VERSION'))"; else echo "== ps1 via $(pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"; fi
   T=$(mktemp -d); STUB="$T/stub.sh"; ARGV="$T/argv.log"
   printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done >> %s\nprintf -- "--\\n" >> %s\n[ -f %s/fail ] && exit 3\nexit 0\n' "$ARGV" "$ARGV" "$T" > "$STUB"; chmod +x "$STUB"
   export TMPDIR="$T"
@@ -37,7 +37,6 @@ for kind in $kinds; do
     else printf '%s' "$1" | env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_BIN_PATH="$STUB" ${3:-} pwsh -NoProfile -File "$R/scripts/herdr-coco-state.ps1"; fi
     check "$?" "0" "$kind: exit 0 ($2)"
   }
-  echo "== $kind"
 
   # No-op guard: no HERDR_* vars, nothing written.
   if [ "$kind" = sh ]; then printf '{"hook_event_name":"Stop"}' | "$BASH_BIN" "$R/scripts/herdr-coco-state.sh"; else printf '{"hook_event_name":"Stop"}' | pwsh -NoProfile -File "$R/scripts/herdr-coco-state.ps1"; fi
@@ -73,6 +72,8 @@ for kind in $kinds; do
   prev=0; mono=yes; for s in $seqs; do [ "$s" -gt "$prev" ] || mono=no; prev=$s; done
   check "$mono" "yes" "$kind: seq strictly increasing"
   check "${#prev}" "13" "$kind: seq is a 13-digit ms timestamp"
+  # Wall-clock check uses the first seq. It must run before the clock-stall
+  # test below pre-seeds the seq file, or a stalled value would pass.
   now_ms=$(( $(date +%s) * 1000 )); first=$(printf '%s\n' "$seqs" | head -1)
   [ "$first" -gt $(( now_ms - 120000 )) ] && [ "$first" -lt $(( now_ms + 120000 )) ] && ok=yes || ok=no
   check "$ok" "yes" "$kind: seq within 2 min of wall clock"
