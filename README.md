@@ -79,7 +79,7 @@ The plugin does not install Herdr or the CoCo CLI. It only adds a hook and two s
 session. You must install both tools first:
 
 - [Herdr](https://herdr.dev/docs/install/) 0.8.2 (tested; the `report-agent` CLI surface is version-sensitive)
-- [CoCo CLI](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) v1.1.76 or later (tested on 1.1.78)
+- [CoCo CLI](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) v1.1.76 or later (tested on 1.1.79)
 - macOS or Linux: `python3` on `PATH`.
 - Windows (native): Windows PowerShell 5.1 or PowerShell 7. The hook runs as a `.ps1` script.
   See [Herdr on Windows](https://herdr.dev/docs/windows-beta/) and the
@@ -186,20 +186,23 @@ Two details matter and were both found by live testing:
 
 - **Sequence numbers must rise across sessions.** Herdr remembers the highest `--seq` per pane for
   the life of its server. A counter that restarts at 1 for each new CoCo session is silently
-  ignored. The script uses a millisecond timestamp.
+  ignored. The scripts use a millisecond timestamp.
 - **`Notification` is required.** When CoCo asks the user a question (`ask_user_question`), only
   `Notification` fires; `PermissionRequest` does not. Removing `Notification` makes a waiting CoCo
   look `working`.
 
 ## Safety
 
-- The script exits immediately unless all three `HERDR_*` variables are present. Outside Herdr it
-  is a no-op.
-- It calls `"$HERDR_BIN_PATH"` directly, never a `herdr` found on `PATH`.
+- The scripts exit immediately unless all three `HERDR_*` variables are present. Outside Herdr they
+  are no-ops.
+- They call `"$HERDR_BIN_PATH"` directly, never a `herdr` found on `PATH`.
 - Hook payload text (which can contain tool output) is parsed as JSON (by Python on macOS and
   Linux, by `ConvertFrom-Json` on Windows) and passed to Herdr as a single argument. An injection
   payload was tested and stayed inert.
-- It always exits 0. A Herdr outage cannot block a CoCo turn.
+- Only the tool name or a fixed phrase is sent to Herdr as the `--message`. Prompt text from a
+  `Notification` is never sent. The event log keeps at most 200 characters of it, and the log
+  directory is created with mode `700` on macOS and Linux.
+- They always exit 0. A Herdr outage cannot block a CoCo turn.
 
 ## Troubleshooting
 

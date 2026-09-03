@@ -20,7 +20,9 @@ AGENT="coco"
 # Use a millisecond timestamp, bumped past the stored value if the clock
 # has not advanced, so the sequence rises across sessions and restarts.
 SEQ_DIR="${TMPDIR:-/tmp}/herdr-coco"
+# The log can hold prompt text, so keep the directory private to this user.
 mkdir -p "$SEQ_DIR" 2>/dev/null || true
+chmod 700 "$SEQ_DIR" 2>/dev/null || true
 SEQ_FILE="$SEQ_DIR/seq.$HERDR_PANE_ID"
 LAST=$(cat "$SEQ_FILE" 2>/dev/null || echo 0)
 NOW=$(python3 -c 'import time; print(int(time.time()*1000))' 2>/dev/null || echo 0)
@@ -75,13 +77,16 @@ case "$EVENT" in
       report blocked "${MSG:-awaiting approval}" ;;
   Notification)
       # Fires when CoCo asks the user a question (ask_user_question), which
-      # PermissionRequest does not cover. Log the payload so any non-question
-      # notification can be identified later.
-      printf '%s   Notification payload: %s\n' "$(date '+%H:%M:%S')" "$PAYLOAD" >> "$LOG_FILE" 2>/dev/null || true
-      MSG=$(json_field message)
-      report blocked "${MSG:-awaiting input}" ;;
+      # PermissionRequest does not cover. Log the first 200 chars of the
+      # message so a non-question notification can be identified later. The
+      # message can contain prompt text, so it is not sent to Herdr.
+      printf '%s   Notification message: %.200s\n' "$(date '+%H:%M:%S')" "$(json_field message)" >> "$LOG_FILE" 2>/dev/null || true
+      report blocked "awaiting input" ;;
   Stop)                                    report idle ;;
   SessionEnd)
+      # release-agent drops this source's authority for the pane. Herdr
+      # applies the same --seq rule as report-agent: a value not above the
+      # last accepted one is ignored.
       "$HERDR_BIN_PATH" pane release-agent "$HERDR_PANE_ID" \
         --source "$SOURCE" --agent "$AGENT" --seq "$SEQ" >/dev/null 2>&1 || true ;;
   *) : ;;

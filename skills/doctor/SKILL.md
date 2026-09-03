@@ -53,12 +53,20 @@ Herdr pane. Stop here.
 
 ### 2. Is the plugin script present and executable?
 
+Find the plugin root first. It is the `Path:` line for `herdr` in:
+
 ```bash
-ls -l "${CLAUDE_PLUGIN_ROOT:-$HOME/.snowflake/cortex/plugins/herdr}/scripts/herdr-coco-state.sh"
+cortex plugin list
+```
+
+Then check the script under that root (`<root>` below):
+
+```bash
+ls -l "<root>/scripts/herdr-coco-state.sh"
 ```
 
 ```powershell
-Get-Item "$env:USERPROFILE\.snowflake\cortex\plugins\herdr\scripts\herdr-coco-state.ps1"
+Get-Item "<root>\scripts\herdr-coco-state.ps1"
 ```
 
 If missing or (on macOS/Linux) not executable: the plugin is not installed
@@ -121,10 +129,10 @@ an old copy of the script is running. Fix: confirm `hooks.json` points at the
 plugin script.
 
 **Status is `blocked` but CoCo is visibly working.** Look for a `Notification`
-line in the log with its payload. If it was not preceded by
-`PreToolUse tool=ask_user_question`, that notification was not a question.
-Report the payload. Do not remove `Notification` from the mapping; it is the only
-event that fires when CoCo asks the user a question.
+line in the log followed by its `Notification message:` line. If it was not
+preceded by `PreToolUse tool=ask_user_question`, that notification was not a
+question. Report the message text. Do not remove `Notification` from the mapping;
+it is the only event that fires when CoCo asks the user a question.
 
 **Status is `working` but CoCo is asking a question.** The `Notification` hook
 did not fire or is not configured. Check the plugin `hooks/hooks.json` contains

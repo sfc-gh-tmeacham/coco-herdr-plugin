@@ -21,6 +21,7 @@ $PaneFile = $Pane -replace ':', '_'
 # for the life of the server, so a counter that restarts per session is ignored.
 # Use a millisecond timestamp, bumped past the stored value if needed.
 $SeqDir = Join-Path ([IO.Path]::GetTempPath()) 'herdr-coco'
+# %TEMP% is already per-user on Windows, so no extra ACL is needed.
 try { New-Item -ItemType Directory -Path $SeqDir -Force | Out-Null } catch {}
 $SeqFile = Join-Path $SeqDir "seq.$PaneFile"
 [long]$Last = 0
@@ -84,14 +85,19 @@ switch ($Event) {
     }
     'Notification' {
         # Fires when CoCo asks the user a question (ask_user_question), which
-        # PermissionRequest does not cover. Log the payload for later review.
-        try { Add-Content -LiteralPath $LogFile -Value "$Stamp   Notification payload: $Payload" } catch {}
+        # PermissionRequest does not cover. Log the first 200 chars of the
+        # message so a non-question notification can be identified later. The
+        # message can contain prompt text, so it is not sent to Herdr.
         $m = Get-Field 'message'
-        if (-not $m) { $m = 'awaiting input' }
-        Send-Report 'blocked' $m
+        if ($m.Length -gt 200) { $m = $m.Substring(0, 200) }
+        try { Add-Content -LiteralPath $LogFile -Value "$Stamp   Notification message: $m" } catch {}
+        Send-Report 'blocked' 'awaiting input'
     }
     'Stop' { Send-Report 'idle' }
     'SessionEnd' {
+        # release-agent drops this source's authority for the pane. Herdr
+        # applies the same --seq rule as report-agent: a value not above the
+        # last accepted one is ignored.
         $a = @('pane', 'release-agent', $Pane, '--source', $Source, '--agent', $Agent, '--seq', "$Seq")
         try { & $HerdrBin @a *> $null } catch {}
     }
