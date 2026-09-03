@@ -208,7 +208,9 @@ Two details matter and were both found by live testing:
 
 Run `$herdr:doctor` inside the CoCo session. It reads the per-pane event log at
 `${TMPDIR:-/tmp}/herdr-coco/events.<pane>.log` (Windows: `%TEMP%\herdr-coco\events.<pane>.log`,
-with `:` in the pane ID replaced by `_`) and compares it with Herdr's view.
+with `:` in the pane ID replaced by `_`) and compares it with Herdr's view. A line of the form
+`herdr report-agent failed rc=N` in that log means the hook ran but the Herdr call did not succeed;
+check `herdr status` and the Herdr version.
 
 `herdr agent explain <pane>` returns `agent_explain_unavailable` for CoCo panes. That is expected:
 the command describes screen-detection state, and a custom integration has none.
@@ -224,15 +226,19 @@ These need a change to Herdr's Rust source and are out of scope:
 
 ## Verification status
 
+Stub tests live in `tests/run.sh` and run both scripts against a fake `herdr`. Run them with
+`bash tests/run.sh` (needs `pwsh` for the Windows script). Live claims below were checked on
+macOS with Herdr 0.8.2 and CoCo CLI 1.1.79.
+
 | Claim | Status |
 | --- | --- |
-| Script produces correct `report-agent` calls for every event | Verified against a stub |
+| Script produces correct `report-agent` calls for every event | Verified by `tests/run.sh` |
 | Herdr accepts the calls and updates the pane | Verified against a live Herdr 0.8.2 server |
 | `idle`, `working`, `blocked` (permission), `blocked` (question), `Stop` from a real CoCo session | Verified |
 | Two CoCo panes reporting independently | Verified |
 | Row removed on real `/exit` | Verified |
 | Persistence across closing the Herdr client | Verified |
-| Windows hook (`herdr-coco-state.ps1`) produces correct calls for every event | Verified against a stub with PowerShell 7 on macOS |
+| Windows hook (`herdr-coco-state.ps1`) produces correct calls for every event | Verified by `tests/run.sh` with PowerShell 7 on macOS |
 | Windows hook on a native Windows install of Herdr and CoCo | Not yet tested |
 
 ## License

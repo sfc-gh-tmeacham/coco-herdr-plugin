@@ -30,10 +30,12 @@ printf '%s' "$SEQ" > "$SEQ_FILE" 2>/dev/null || true
 
 PAYLOAD=$(cat 2>/dev/null || true)
 
-# One Python call parses the payload and emits the four fields NUL-separated.
-# Python does the parsing. The shell never evaluates payload text.
-{ IFS= read -r -d '' EVENT; IFS= read -r -d '' SESSION_ID; IFS= read -r -d '' TOOL_NAME; IFS= read -r -d '' MESSAGE; } < <(
-  printf '%s' "$PAYLOAD" | python3 -c '
+# One Python call parses the payload and emits the four fields separated by
+# the ASCII unit separator (0x1F). Python does the parsing. The shell never
+# evaluates payload text. No process substitution, so no /dev/fd dependency.
+# Defaults are set first so a missing python3 leaves them empty, not unset.
+EVENT= SESSION_ID= TOOL_NAME= MESSAGE=
+FIELDS=$(printf '%s' "$PAYLOAD" | python3 -c '
 import json,sys
 try:
     d = json.load(sys.stdin)
@@ -43,9 +45,14 @@ def f(k):
     v = d.get(k)
     if isinstance(v, (dict, list)):
         v = json.dumps(v)
-    return "" if v is None else str(v)
-sys.stdout.write("\0".join(f(k) for k in ("hook_event_name","session_id","tool_name","message")) + "\0")
-' 2>/dev/null ) || true
+    return "" if v is None else str(v).replace("\x1f", " ")
+sys.stdout.write("\x1f".join(f(k) for k in ("hook_event_name","session_id","tool_name","message")))
+' 2>/dev/null || true)
+IFS=$'\x1f' read -r -d '' EVENT SESSION_ID TOOL_NAME MESSAGE <<< "$FIELDS" || true
+# The here-string adds a trailing newline. It lands on the last field read,
+# which is MESSAGE when all four are present and EVENT when python3 is absent.
+MESSAGE=${MESSAGE%$'\n'}
+EVENT=${EVENT%$'\n'}
 
 [ -n "$EVENT" ] || EVENT="${1:-}"
 
@@ -56,7 +63,8 @@ printf '%s %s tool=%s [plugin]\n' "$(date '+%H:%M:%S')" "$EVENT" "$TOOL_NAME" >>
 
 herdr_call() {
   # Runs Herdr and records a failure in the log so $herdr:doctor can see it.
-  # The exit code is never propagated.
+  # The exit code is never propagated. Callers always pass "pane <subcommand>"
+  # first, so $2 is the subcommand named in the log line.
   local rc=0
   "$HERDR_BIN_PATH" "$@" >/dev/null 2>&1 || rc=$?
   [ "$rc" = 0 ] && return 0

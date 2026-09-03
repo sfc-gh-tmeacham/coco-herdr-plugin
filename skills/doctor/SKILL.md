@@ -112,6 +112,12 @@ Compare the `agent_status` with the last event in the log:
 | `PermissionRequest`, `Notification` | `blocked` |
 | `SessionEnd` | no `agent` key; pane absent from `agent list` |
 
+Also scan the log for lines of the form `herdr report-agent failed rc=N`. They
+mean the hook ran and the binary launched, but Herdr rejected the call (or the
+binary is not runnable, `rc=-1` or `rc=126/127`). Check `herdr status` and
+compare the server version with the tested Herdr version in the README. The
+`report-agent` flag surface is version-sensitive.
+
 ### 5. Interpret a mismatch
 
 **Hooks fire, but no `agent` key and `agent_status: unknown`.** Herdr rejected

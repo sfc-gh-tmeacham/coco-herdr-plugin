@@ -64,9 +64,13 @@ try {
 
 function Invoke-Herdr {
     # Runs Herdr and records a failure in the log so $herdr:doctor can see it.
-    # The exit code is never propagated.
+    # The exit code is never propagated. Callers always pass "pane <subcommand>"
+    # first, so $HerdrArgs[1] is the subcommand named in the log line.
+    # $LASTEXITCODE is reset first: a binary that fails to launch does not set
+    # it, and under SilentlyContinue that failure would otherwise look like 0.
     param([string[]]$HerdrArgs)
-    $rc = 0
+    $global:LASTEXITCODE = -1
+    $rc = -1
     try { & $HerdrBin @HerdrArgs *> $null; $rc = $LASTEXITCODE } catch { $rc = -1 }
     if ($rc -ne 0) {
         try { Add-Content -LiteralPath $LogFile -Value "$Stamp   herdr $($HerdrArgs[1]) failed rc=$rc" } catch {}
