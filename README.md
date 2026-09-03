@@ -80,7 +80,9 @@ session. You must install both tools first:
 
 - [Herdr](https://herdr.dev/docs/install/) 0.8.2 (tested; the `report-agent` CLI surface is version-sensitive)
 - [CoCo CLI](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) v1.1.76 or later (tested on 1.1.79)
-- macOS or Linux: `python3` on `PATH`.
+- macOS or Linux: `bash`. `python3` on `PATH` is recommended but not required. With it, the hook
+  parses the payload as JSON. Without it, a `grep`-based fallback reads the event name, session ID,
+  and tool name; the free-text message is not parsed.
 - Windows (native): Windows PowerShell 5.1 or PowerShell 7. The hook runs as a `.ps1` script.
   See [Herdr on Windows](https://herdr.dev/docs/windows-beta/) and the
   [CoCo CLI Windows install](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli#windows-native).
@@ -197,7 +199,9 @@ Two details matter and were both found by live testing:
   are no-ops.
 - They call `"$HERDR_BIN_PATH"` directly, never a `herdr` found on `PATH`.
 - Hook payload text (which can contain tool output) is parsed as JSON (by Python on macOS and
-  Linux, by `ConvertFrom-Json` on Windows) and passed to Herdr as a single argument. An injection
+  Linux when available, by `ConvertFrom-Json` on Windows) and passed to Herdr as a single argument.
+  Values that reach the Herdr command line (session ID, tool name) are limited to
+  `[A-Za-z0-9_.:-]` and may not start with `-`, so payload text cannot add an option. An injection
   payload was tested and stayed inert.
 - Only the tool name or a fixed phrase is sent to Herdr as the `--message`. Prompt text from a
   `Notification` is never sent. The event log keeps at most 200 characters of it, and the log

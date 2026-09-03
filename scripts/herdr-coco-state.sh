@@ -24,18 +24,25 @@ SEQ_DIR="${TMPDIR:-/tmp}/herdr-coco"
 [ -d "$SEQ_DIR" ] || (umask 077; mkdir -p "$SEQ_DIR") 2>/dev/null || true
 SEQ_FILE="$SEQ_DIR/seq.$HERDR_PANE_ID"
 LAST=$(cat "$SEQ_FILE" 2>/dev/null || echo 0)
-NOW=$(python3 -c 'import time; print(int(time.time()*1000))' 2>/dev/null || echo 0)
+# Millisecond clock without python3: bash 5 exposes EPOCHREALTIME; older bash
+# falls back to whole seconds * 1000. Same-second events get LAST + 1.
+if [ -n "${EPOCHREALTIME:-}" ]; then
+  T=${EPOCHREALTIME/,/.}
+  NOW=$(( ${T%.*} * 1000 + 10#${T#*.} / 1000 ))
+else
+  NOW=$(( $(date +%s 2>/dev/null || echo 0) * 1000 ))
+fi
 if [ "$NOW" -gt "$LAST" ] 2>/dev/null; then SEQ=$NOW; else SEQ=$(( LAST + 1 )); fi
 printf '%s' "$SEQ" > "$SEQ_FILE" 2>/dev/null || true
 
 PAYLOAD=$(cat 2>/dev/null || true)
 
-# One Python call parses the payload and emits the four fields separated by
-# the ASCII unit separator (0x1F). Python does the parsing. The shell never
-# evaluates payload text. No process substitution, so no /dev/fd dependency.
-# Defaults are set first so a missing python3 leaves them empty, not unset.
+# Parse the payload. python3 is preferred: one call emits the four fields
+# separated by the ASCII unit separator (0x1F), and the shell never evaluates
+# payload text. Defaults are set first so a failed parse leaves them empty.
 EVENT= SESSION_ID= TOOL_NAME= MESSAGE=
-FIELDS=$(printf '%s' "$PAYLOAD" | python3 -c '
+if command -v python3 >/dev/null 2>&1; then
+  FIELDS=$(printf '%s' "$PAYLOAD" | python3 -c '
 import json,sys
 try:
     d = json.load(sys.stdin)
@@ -48,11 +55,27 @@ def f(k):
     return "" if v is None else str(v).replace("\x1f", " ")
 sys.stdout.write("\x1f".join(f(k) for k in ("hook_event_name","session_id","tool_name","message")))
 ' 2>/dev/null || true)
-IFS=$'\x1f' read -r -d '' EVENT SESSION_ID TOOL_NAME MESSAGE <<< "$FIELDS" || true
-# The here-string adds a trailing newline. It lands on the last field read,
-# which is MESSAGE when all four are present and EVENT when python3 is absent.
-MESSAGE=${MESSAGE%$'\n'}
-EVENT=${EVENT%$'\n'}
+  IFS=$'\x1f' read -r -d '' EVENT SESSION_ID TOOL_NAME MESSAGE <<< "$FIELDS" || true
+  # The here-string adds a trailing newline to the last field read.
+  MESSAGE=${MESSAGE%$'\n'}
+  EVENT=${EVENT%$'\n'}
+else
+  # Fallback without python3: take the first "key":"value" match for each
+  # simple field. Values are limited to a safe charset below, so payload text
+  # cannot smuggle an option or a state. The free-text message is not parsed.
+  simple_field() {
+    printf '%s' "$PAYLOAD" | grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[A-Za-z0-9_.:-]*\"" 2>/dev/null \
+      | head -n 1 | sed 's/.*"\([^"]*\)"$/\1/'
+  }
+  EVENT=$(simple_field hook_event_name)
+  SESSION_ID=$(simple_field session_id)
+  TOOL_NAME=$(simple_field tool_name)
+  MESSAGE='(python3 absent, message not parsed)'
+fi
+
+# Values that become argv elements must not look like options.
+case "$SESSION_ID" in *[!A-Za-z0-9_.:-]*|-*) SESSION_ID= ;; esac
+case "$TOOL_NAME"  in *[!A-Za-z0-9_.:-]*|-*) TOOL_NAME= ;; esac
 
 [ -n "$EVENT" ] || EVENT="${1:-}"
 

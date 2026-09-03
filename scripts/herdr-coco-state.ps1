@@ -52,11 +52,15 @@ function Get-Field {
 $Event = Get-Field 'hook_event_name'
 if (-not $Event -and $args.Count -gt 0) { $Event = $args[0] }
 $SessionId = Get-Field 'session_id'
+$ToolName = Get-Field 'tool_name'
+# Values that become argv elements must not look like options.
+if ($SessionId -notmatch '^[A-Za-z0-9_.:][A-Za-z0-9_.:-]*$') { $SessionId = '' }
+if ($ToolName -notmatch '^[A-Za-z0-9_.:][A-Za-z0-9_.:-]*$') { $ToolName = '' }
 
 # Per-pane event log for troubleshooting ($herdr:doctor reads it).
 $LogFile = Join-Path $SeqDir "events.$PaneFile.log"
 $Stamp = Get-Date -Format 'HH:mm:ss'
-try { Add-Content -LiteralPath $LogFile -Value "$Stamp $Event tool=$(Get-Field 'tool_name') [plugin]" } catch {}
+try { Add-Content -LiteralPath $LogFile -Value "$Stamp $Event tool=$ToolName [plugin]" } catch {}
 try {
     $lines = @(Get-Content -LiteralPath $LogFile)
     if ($lines.Count -gt 400) { Set-Content -LiteralPath $LogFile -Value ($lines | Select-Object -Last 200) }
@@ -94,7 +98,7 @@ switch ($Event) {
     { $_ -in 'UserPromptSubmit', 'PreToolUse', 'PostToolUse' } { Send-Report 'working' }
     'PermissionRequest' {
         # Fires when CoCo asks permission to run a tool.
-        $m = Get-Field 'tool_name'
+        $m = $ToolName
         if (-not $m) { $m = 'awaiting approval' }
         Send-Report 'blocked' $m
     }
