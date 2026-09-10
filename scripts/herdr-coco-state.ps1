@@ -103,14 +103,16 @@ switch ($Event) {
         Send-Report 'blocked' $m
     }
     'Notification' {
-        # Fires when CoCo asks the user a question (ask_user_question), which
-        # PermissionRequest does not cover. Log the first 200 chars of the
-        # message so a non-question notification can be identified later. The
-        # message can contain prompt text, so it is not sent to Herdr.
+        # CoCo uses Notification for both user questions and permission prompts.
+        # PermissionRequest is authoritative for the latter, so ignoring its
+        # duplicate notification prevents a delayed event from overwriting a
+        # later working state. Log all notifications for diagnosis.
         $m = Get-Field 'message'
         if ($m.Length -gt 200) { $m = $m.Substring(0, 200) }
         try { Add-Content -LiteralPath $LogFile -Value "$Stamp   Notification message: $m" } catch {}
-        Send-Report 'blocked' 'awaiting input'
+        if (-not $m.StartsWith('Permission required:')) {
+            Send-Report 'blocked' 'awaiting input'
+        }
     }
     'Stop' { Send-Report 'idle' }
     'SessionEnd' {

@@ -109,7 +109,8 @@ Compare the `agent_status` with the last event in the log:
 | --- | --- |
 | `SessionStart`, `Stop` | `idle` or `done` |
 | `UserPromptSubmit`, `PreToolUse`, `PostToolUse` | `working` |
-| `PermissionRequest`, `Notification` | `blocked` |
+| `PermissionRequest`, user-question `Notification` | `blocked` |
+| `Notification message: Permission required: ...` | unchanged |
 | `SessionEnd` | no `agent` key; pane absent from `agent list` |
 
 Also scan the log for lines of the form `herdr report-agent failed rc=N`. They
@@ -136,10 +137,12 @@ an old copy of the script is running. Fix: confirm `hooks.json` points at the
 plugin script.
 
 **Status is `blocked` but CoCo is visibly working.** Look for a `Notification`
-line in the log followed by its `Notification message:` line. If it was not
-preceded by `PreToolUse tool=ask_user_question`, that notification was not a
-question. Report the message text. Do not remove `Notification` from the mapping;
-it is the only event that fires when CoCo asks the user a question.
+line in the log followed by its `Notification message:` line. A message beginning
+`Permission required:` is a duplicate tool-approval notification. Current scripts
+log it but leave the current state unchanged because the preceding `PermissionRequest`
+already reported the approval. Other notifications can represent a real user question.
+Do not remove `Notification` handling because it is the only event that fires when
+CoCo asks the user a question.
 
 **Status is `working` but CoCo is asking a question.** The `Notification` hook
 did not fire or is not configured. Check the plugin `hooks/hooks.json` contains

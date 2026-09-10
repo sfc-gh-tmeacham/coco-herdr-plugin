@@ -248,7 +248,8 @@ Event mapping:
 | `SessionStart`, `Stop` | `idle` |
 | `UserPromptSubmit`, `PreToolUse`, `PostToolUse` | `working` |
 | `PermissionRequest` | `blocked` |
-| `Notification` | `blocked` |
+| `Notification` for a user question | `blocked` |
+| `Notification` beginning `Permission required:` | ignored |
 | `SessionEnd` | `release-agent` |
 
 Two details matter and were both found by live testing:
@@ -256,9 +257,11 @@ Two details matter and were both found by live testing:
 - **Sequence numbers must rise across sessions.** Herdr remembers the highest `--seq` per pane for
   the life of its server. A counter that restarts at 1 for each new CoCo session is silently
   ignored. The scripts use a millisecond timestamp.
-- **`Notification` is required.** When CoCo asks the user a question (`ask_user_question`), only
-  `Notification` fires; `PermissionRequest` does not. Removing `Notification` makes a waiting CoCo
-  look `working`.
+- **`Notification` is required for user questions.** When CoCo asks the user a question
+  (`ask_user_question`), only `Notification` fires and Herdr reports `blocked`. CoCo also emits a
+  `Notification` after a `PermissionRequest` for some tool approvals. The scripts log that duplicate
+  message but do not report it because `PermissionRequest` already owns the approval state. This
+  prevents a delayed approval notification from overwriting a later `working` state.
 
 ## Safety
 

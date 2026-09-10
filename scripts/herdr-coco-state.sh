@@ -114,12 +114,15 @@ case "$EVENT" in
       # Fires when CoCo asks permission to run a tool.
       report blocked "${TOOL_NAME:-awaiting approval}" ;;
   Notification)
-      # Fires when CoCo asks the user a question (ask_user_question), which
-      # PermissionRequest does not cover. Log the first 200 chars of the
-      # message so a non-question notification can be identified later. The
-      # message can contain prompt text, so it is not sent to Herdr.
+      # CoCo uses Notification for both user questions and permission prompts.
+      # PermissionRequest is authoritative for the latter, so ignoring its
+      # duplicate notification prevents a delayed event from overwriting a
+      # later working state. Log all notifications for diagnosis.
       printf '%s   Notification message: %.200s\n' "$(date '+%H:%M:%S')" "$MESSAGE" >> "$LOG_FILE" 2>/dev/null || true
-      report blocked "awaiting input" ;;
+      case "$MESSAGE" in
+        "Permission required:"*) : ;;
+        *) report blocked "awaiting input" ;;
+      esac ;;
   Stop)                                    report idle ;;
   SessionEnd)
       # release-agent drops this source's authority for the pane. Herdr

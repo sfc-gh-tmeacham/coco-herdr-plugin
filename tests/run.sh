@@ -29,7 +29,7 @@ done
 for kind in $kinds; do
  for BASH_BIN in $( [ "$kind" = sh ] && echo $BASHES || echo pwsh ); do
   if [ "$kind" = sh ]; then echo "== sh via $BASH_BIN ($($BASH_BIN -c 'echo $BASH_VERSION'))"; else echo "== ps1 via $(pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"; fi
-  T=$(mktemp -d); STUB="$T/stub.sh"; ARGV="$T/argv.log"
+  T=$(TMPDIR=/tmp mktemp -d); STUB="$T/stub.sh"; ARGV="$T/argv.log"
   printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done >> %s\nprintf -- "--\\n" >> %s\n[ -f %s/fail ] && exit 3\nexit 0\n' "$ARGV" "$ARGV" "$T" > "$STUB"; chmod +x "$STUB"
   export TMPDIR="$T"
   run() { # $1 payload, $2 label, $3 optional extra env
@@ -39,7 +39,7 @@ for kind in $kinds; do
   }
 
   # No-op guard: no HERDR_* vars, nothing written.
-  if [ "$kind" = sh ]; then printf '{"hook_event_name":"Stop"}' | "$BASH_BIN" "$R/scripts/herdr-coco-state.sh"; else printf '{"hook_event_name":"Stop"}' | pwsh -NoProfile -File "$R/scripts/herdr-coco-state.ps1"; fi
+  if [ "$kind" = sh ]; then printf '{"hook_event_name":"Stop"}' | env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_BIN_PATH "$BASH_BIN" "$R/scripts/herdr-coco-state.sh"; else printf '{"hook_event_name":"Stop"}' | env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_BIN_PATH pwsh -NoProfile -File "$R/scripts/herdr-coco-state.ps1"; fi
   check "$?" "0" "$kind: exit 0 outside Herdr"
   check "$(ls "$T" | grep -c herdr-coco)" "0" "$kind: no files written outside Herdr"
 
@@ -49,6 +49,7 @@ for kind in $kinds; do
   run '{"hook_event_name":"PostToolUse","session_id":"s1","tool_name":"bash"}' PostToolUse
   run '{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"edit"}' PermissionRequest
   run "{\"hook_event_name\":\"Notification\",\"session_id\":\"s1\",\"message\":\"$INJ\"}" Notification
+  run '{"hook_event_name":"Notification","session_id":"s1","message":"Permission required: execute_command on git commit"}' approval-notification
   run 'garbage' garbage
   run '{"hook_event_name":"PermissionRequest","session_id":"--evil","tool_name":"--state working"}' option-injection
   touch "$T/fail"
@@ -77,9 +78,10 @@ for kind in $kinds; do
   now_ms=$(( $(date +%s) * 1000 )); first=$(printf '%s\n' "$seqs" | head -1)
   [ "$first" -gt $(( now_ms - 120000 )) ] && [ "$first" -lt $(( now_ms + 120000 )) ] && ok=yes || ok=no
   check "$ok" "yes" "$kind: seq within 2 min of wall clock"
-  check "$(grep -c ' \[plugin\]$' "$LOG")" "10" "$kind: one log line per event"
+  check "$(grep -c ' \[plugin\]$' "$LOG")" "11" "$kind: one log line per event"
   check "$(grep -c 'PreToolUse tool=bash' "$LOG")" "1" "$kind: tool name logged"
   check "$(grep -c 'Notification message: x; rm -rf' "$LOG")" "1" "$kind: notification message logged"
+  check "$(grep -c 'Notification message: Permission required:' "$LOG")" "1" "$kind: approval notification logged"
   check "$(grep -c 'herdr report-agent failed rc=3' "$LOG")" "1" "$kind: failed herdr call logged"
   echo 9999999999999 > "$SEQF"
   run '{"hook_event_name":"Stop"}' clock-stall
@@ -97,7 +99,7 @@ for kind in $kinds; do
     check "$(grep -A1 -x -- '--message' "$ARGV" | tail -1)" "bash" "sh: tool name parsed without python3"
     check "$(cat "$SEQF" | wc -c | tr -d ' ')" "13" "sh: 13-digit seq without python3"
   fi
-  rm -rf "$T"
+  rm -rf "$T"; unset TMPDIR
  done
 done
 [ $fail = 0 ] && echo "ALL PASS" || { echo "SOME FAIL"; exit 1; }
