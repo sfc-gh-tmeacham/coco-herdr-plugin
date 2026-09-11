@@ -93,6 +93,16 @@ function Send-Report {
     Invoke-Herdr $a
 }
 
+function Test-NeedsUserAttention {
+    # Notification also carries team-worker lifecycle updates. Only mark the pane
+    # blocked when the message asks the user to take an action or answer a question.
+    param([string]$Message)
+    if ($Message -match '<task-notification>|Discovery update from a sibling subagent|Team Mode Active|Plan mode is active|<system-reminder>') {
+        return $false
+    }
+    return $Message -match '\?|\b[Pp]lease\b|\b[Cc]hoose\b|\b[Ss]elect\b|\b[Aa]pprove\b|\b[Cc]onfirm\b|\b[Nn]eed your\b|\b[Aa]waiting your\b'
+}
+
 switch ($Event) {
     'SessionStart' { Send-Report 'idle' }
     { $_ -in 'UserPromptSubmit', 'PreToolUse', 'PostToolUse' } { Send-Report 'working' }
@@ -103,14 +113,12 @@ switch ($Event) {
         Send-Report 'blocked' $m
     }
     'Notification' {
-        # CoCo uses Notification for both user questions and permission prompts.
-        # PermissionRequest is authoritative for the latter, so ignoring its
-        # duplicate notification prevents a delayed event from overwriting a
-        # later working state. Log all notifications for diagnosis.
+        # PermissionRequest is authoritative for tool approval. Notification also
+        # carries team updates, so report blocked only for user-action prompts.
         $m = Get-Field 'message'
         if ($m.Length -gt 200) { $m = $m.Substring(0, 200) }
         try { Add-Content -LiteralPath $LogFile -Value "$Stamp   Notification message: $m" } catch {}
-        if (-not $m.StartsWith('Permission required:')) {
+        if (-not $m.StartsWith('Permission required:') -and (Test-NeedsUserAttention $m)) {
             Send-Report 'blocked' 'awaiting input'
         }
     }

@@ -107,6 +107,21 @@ report() {
   herdr_call "${args[@]}"
 }
 
+needs_user_attention() {
+  # Notification also carries team-worker lifecycle updates. Only mark the pane
+  # blocked when the message asks the user to take an action or answer a question.
+  case "$1" in
+    *"<task-notification>"*|*"Discovery update from a sibling subagent"*|*"Team Mode Active"*|*"Plan mode is active"*)
+      return 1 ;;
+    *"<system-reminder>"*)
+      return 1 ;;
+    *"?"*|*"Please "*|*"please "*|*"Choose "*|*"choose "*|*"Select "*|*"select "*|*"Approve "*|*"approve "*|*"Confirm "*|*"confirm "*|*"Need your "*|*"need your "*|*"Awaiting your "*|*"awaiting your "*)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
 case "$EVENT" in
   SessionStart)                            report idle ;;
   UserPromptSubmit|PreToolUse|PostToolUse) report working ;;
@@ -114,14 +129,12 @@ case "$EVENT" in
       # Fires when CoCo asks permission to run a tool.
       report blocked "${TOOL_NAME:-awaiting approval}" ;;
   Notification)
-      # CoCo uses Notification for both user questions and permission prompts.
-      # PermissionRequest is authoritative for the latter, so ignoring its
-      # duplicate notification prevents a delayed event from overwriting a
-      # later working state. Log all notifications for diagnosis.
+      # PermissionRequest is authoritative for tool approval. Notification also
+      # carries team updates, so report blocked only for user-action prompts.
       printf '%s   Notification message: %.200s\n' "$(date '+%H:%M:%S')" "$MESSAGE" >> "$LOG_FILE" 2>/dev/null || true
       case "$MESSAGE" in
         "Permission required:"*) : ;;
-        *) report blocked "awaiting input" ;;
+        *) needs_user_attention "$MESSAGE" && report blocked "awaiting input" ;;
       esac ;;
   Stop)                                    report idle ;;
   SessionEnd)
