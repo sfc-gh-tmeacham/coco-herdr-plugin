@@ -124,11 +124,12 @@ switch ($Event) {
     }
     'Stop' { Send-Report 'idle' }
     'SessionEnd' {
-        # release-agent drops this source's authority for the pane. Herdr
-        # applies the same --seq rule as report-agent: a value not above the
-        # last accepted one is ignored.
-        $a = @('pane', 'release-agent', $Pane, '--source', $Source, '--agent', $Agent, '--seq', "$Seq")
-        Invoke-Herdr $a
+        # Cortex fires SessionEnd when a turn ends, while this process is still
+        # in the foreground and the prompt is still open. release-agent here
+        # drops the sidebar row, and autorename then replaces the conversation
+        # title with "cortex". Herdr clears the row once the process has exited
+        # and the pane is back at a shell prompt.
+        Send-Report 'idle'
     }
     default { }
 }

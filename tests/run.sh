@@ -59,17 +59,17 @@ for kind in $kinds; do
 
   if [ "$kind" = sh ]; then LOG="$T/herdr-coco/events.w1:p1.log"; SEQF="$T/herdr-coco/seq.w1:p1"; else LOG="$T/herdr-coco/events.w1_p1.log"; SEQF="$T/herdr-coco/seq.w1_p1"; fi
   states=$(grep -A1 -x -- '--state' "$ARGV" | grep -vx -e '--state' -e '--' | tr '\n' ' ')
-  check "$states" "idle working working working blocked blocked blocked idle " "$kind: state sequence"
+  check "$states" "idle working working working blocked blocked idle idle " "$kind: state sequence"
   check "$(grep -c '^s1$' "$ARGV")" "7" "$kind: session id on every report"
   check "$(grep -c -e '^--evil$' -e '^--state working$' "$ARGV")" "0" "$kind: option-like values dropped from argv"
   check "$(grep -c '^awaiting approval$' "$ARGV")" "1" "$kind: fallback message when tool name rejected"
   check "$(grep -c '^edit$' "$ARGV")" "1" "$kind: tool name as permission message"
-  check "$(grep -c '^awaiting input$' "$ARGV")" "1" "$kind: fixed phrase as notification message"
+  check "$(grep -c '^awaiting input$' "$ARGV")" "0" "$kind: shell-injection notification is not a user question"
   check "$(grep -c 'whoami' "$ARGV")" "0" "$kind: prompt text not sent to Herdr"
-  check "$(grep -c '^w1:p1$' "$ARGV")" "9" "$kind: pane id verbatim"
-  check "$(grep -c '^release-agent$' "$ARGV")" "1" "$kind: release-agent sent once"
+  check "$(grep -c '^w1:p1$' "$ARGV")" "8" "$kind: pane id verbatim"
+  check "$(grep -c '^release-agent$' "$ARGV")" "0" "$kind: SessionEnd does not release the pane"
   seqs=$(grep -A1 -x -- '--seq' "$ARGV" | grep -vx -e '--seq' -e '--')
-  check "$(printf '%s\n' "$seqs" | wc -l | tr -d ' ')" "9" "$kind: one seq per herdr call"
+  check "$(printf '%s\n' "$seqs" | wc -l | tr -d ' ')" "8" "$kind: one seq per herdr call"
   prev=0; mono=yes; for s in $seqs; do [ "$s" -gt "$prev" ] || mono=no; prev=$s; done
   check "$mono" "yes" "$kind: seq strictly increasing"
   check "${#prev}" "13" "$kind: seq is a 13-digit ms timestamp"

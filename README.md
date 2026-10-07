@@ -245,12 +245,13 @@ Event mapping:
 
 | CoCo hook event | Herdr state |
 | --- | --- |
-| `SessionStart`, `Stop` | `idle` |
+| `SessionStart`, `Stop`, `SessionEnd` | `idle` |
 | `UserPromptSubmit`, `PreToolUse`, `PostToolUse` | `working` |
 | `PermissionRequest` | `blocked` |
 | `Notification` for a user question | `blocked` |
 | `Notification` beginning `Permission required:` | ignored |
-| `SessionEnd` | `release-agent` |
+
+`SessionEnd` is `idle`, same as `Stop`. Cortex emits it while the prompt is still open. Herdr removes the row after the process exits.
 
 Two details matter and were both found by live testing:
 

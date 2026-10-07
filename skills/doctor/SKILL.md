@@ -31,7 +31,7 @@ Event to state mapping:
 | `PermissionRequest` (tool approval) | `blocked` |
 | User-action `Notification` (question or explicit request) | `blocked` |
 | Team lifecycle or system `Notification` | unchanged |
-| `SessionEnd` | authority released, row removed |
+| `SessionEnd` | `idle` (the process is still running; Herdr drops the row after it exits) |
 
 ## Steps
 
@@ -112,7 +112,7 @@ Compare the `agent_status` with the last event in the log:
 | `UserPromptSubmit`, `PreToolUse`, `PostToolUse` | `working` |
 | `PermissionRequest`, user-question `Notification` | `blocked` |
 | `Notification message: Permission required: ...` | unchanged |
-| `SessionEnd` | no `agent` key; pane absent from `agent list` |
+| `SessionEnd` | `idle` or `done` |
 
 Also scan the log for lines of the form `herdr report-agent failed rc=N`. They
 mean the hook ran and the binary launched, but Herdr rejected the call (or the
