@@ -23,18 +23,73 @@ SEQ_DIR="${TMPDIR:-/tmp}/herdr-coco"
 # The log can hold prompt text, so create the directory private to this user.
 [ -d "$SEQ_DIR" ] || (umask 077; mkdir -p "$SEQ_DIR") 2>/dev/null || true
 SEQ_FILE="$SEQ_DIR/seq.$HERDR_PANE_ID"
-LAST=$(cat "$SEQ_FILE" 2>/dev/null || echo 0)
-# Millisecond clock without python3: bash 5 exposes EPOCHREALTIME; older bash
-# falls back to whole seconds * 1000. Same-second events get LAST + 1.
-if [ -n "${EPOCHREALTIME:-}" ]; then
-  T=${EPOCHREALTIME/,/.}
-  F=${T#*.}000            # pad so a short fraction still yields 3 digits
-  NOW=$(( ${T%.*} * 1000 + 10#${F:0:3} ))
-else
-  NOW=$(( $(date +%s 2>/dev/null || echo 0) * 1000 ))
+LOCK_DIR="$SEQ_FILE.lock"
+# Per-pane event log for troubleshooting ($coco-herdr-plugin:doctor reads it).
+LOG_FILE="$SEQ_DIR/events.$HERDR_PANE_ID.log"
+
+herdr_call() {
+  # Runs Herdr and records a failure in the log so $coco-herdr-plugin:doctor can see it.
+  # The exit code is never propagated. Callers always pass "pane <subcommand>"
+  # first, so $2 is the subcommand named in the log line.
+  local rc=0
+  "$HERDR_BIN_PATH" "$@" >/dev/null 2>&1 || rc=$?
+  [ "$rc" = 0 ] && return 0
+  printf '%s   herdr %s failed rc=%s\n' "$(date '+%H:%M:%S')" "$2" "$rc" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+# Watcher mode, started detached by SessionEnd: "__watch <cortex pid> <seq>".
+# Releases the row once the Cortex process exits. Exits without releasing once
+# the seq file holds a value above the reserved seq (a later hook event ran) or
+# is gone. A non-numeric read is retried on the next tick. Lifetime cap: 24 h.
+if [ "${1:-}" = "__watch" ]; then
+  WPID=${2:-} WSEQ=${3:-}
+  case "$WPID" in ''|*[!0-9]*) exit 0 ;; esac
+  case "$WSEQ" in ''|*[!0-9]*) exit 0 ;; esac
+  trap '' HUP
+  n=0
+  while [ "$n" -lt 86400 ]; do
+    [ -e "$SEQ_FILE" ] || exit 0
+    CUR=$(cat "$SEQ_FILE" 2>/dev/null)
+    case "$CUR" in ''|*[!0-9]*) : ;; *) [ "$CUR" -gt "$WSEQ" ] 2>/dev/null && exit 0 ;; esac
+    if ! kill -0 "$WPID" 2>/dev/null; then
+      # Bound the release (~10 s) so a stuck herdr cannot keep the watcher alive.
+      herdr_call pane release-agent "$HERDR_PANE_ID" --source "$SOURCE" --agent "$AGENT" --seq "$WSEQ" &
+      HP=$! i=0
+      while kill -0 "$HP" 2>/dev/null; do
+        i=$(( i + 1 ))
+        if [ "$i" -gt 100 ]; then
+          kill "$HP" 2>/dev/null
+          printf '%s   herdr release-agent timed out\n' "$(date '+%H:%M:%S')" >> "$LOG_FILE" 2>/dev/null
+          break
+        fi
+        sleep 0.1 2>/dev/null || break
+      done
+      exit 0
+    fi
+    sleep 1 2>/dev/null || exit 0
+    n=$(( n + 1 ))
+  done
+  exit 0
 fi
-if [ "$NOW" -gt "$LAST" ] 2>/dev/null; then SEQ=$NOW; else SEQ=$(( LAST + 1 )); fi
-printf '%s' "$SEQ" > "$SEQ_FILE" 2>/dev/null || true
+
+seq_lock() {
+  # Serializes seq allocation per pane. mkdir is atomic. After ~2 s the lock is
+  # taken over as stale, so a hook never waits longer than that.
+  # LOCKED is set only when this hook holds the lock, so it never removes
+  # another hook's lock.
+  [ -d "$SEQ_DIR" ] && [ -w "$SEQ_DIR" ] || return 0
+  local i=0
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    i=$(( i + 1 ))
+    if [ "$i" -ge 40 ]; then
+      rmdir "$LOCK_DIR" 2>/dev/null; mkdir "$LOCK_DIR" 2>/dev/null && LOCKED=1
+      return 0
+    fi
+    sleep 0.05 2>/dev/null || return 0
+  done
+  LOCKED=1
+}
+LOCKED=
 
 PAYLOAD=$(cat 2>/dev/null || true)
 
@@ -80,20 +135,28 @@ case "$TOOL_NAME"  in *[!A-Za-z0-9_.:-]*|-*) TOOL_NAME= ;; esac
 
 [ -n "$EVENT" ] || EVENT="${1:-}"
 
-# Per-pane event log for troubleshooting ($coco-herdr-plugin:doctor reads it).
-LOG_FILE="$SEQ_DIR/events.$HERDR_PANE_ID.log"
+seq_lock
+LAST=$(cat "$SEQ_FILE" 2>/dev/null || echo 0)
+case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac
+# Millisecond clock without python3: bash 5 exposes EPOCHREALTIME; older bash
+# falls back to whole seconds * 1000. Same-second events get LAST + 1.
+if [ -n "${EPOCHREALTIME:-}" ]; then
+  T=${EPOCHREALTIME/,/.}
+  F=${T#*.}000            # pad so a short fraction still yields 3 digits
+  NOW=$(( ${T%.*} * 1000 + 10#${F:0:3} ))
+else
+  NOW=$(( $(date +%s 2>/dev/null || echo 0) * 1000 ))
+fi
+if [ "$NOW" -gt "$LAST" ] 2>/dev/null; then SEQ=$NOW; else SEQ=$(( 10#$LAST + 1 )); fi
+# SessionEnd stores its reserved release seq (SEQ + 1) in the same lock hold, so
+# no concurrent event can allocate a value at or below it.
+STORE=$SEQ; [ "$EVENT" = SessionEnd ] && STORE=$(( SEQ + 1 ))
+# Temp file + rename, so a reader never sees a partial value.
+printf '%s' "$STORE" > "$SEQ_FILE.tmp.$$" 2>/dev/null && mv -f "$SEQ_FILE.tmp.$$" "$SEQ_FILE" 2>/dev/null || true
+[ -n "$LOCKED" ] && { rmdir "$LOCK_DIR" 2>/dev/null || true; }
+
 printf '%s %s tool=%s [plugin]\n' "$(date '+%H:%M:%S')" "$EVENT" "$TOOL_NAME" >> "$LOG_FILE" 2>/dev/null || true
 [ "$(wc -l < "$LOG_FILE" 2>/dev/null || echo 0)" -gt 400 ] && tail -n 200 "$LOG_FILE" > "$LOG_FILE.tmp" 2>/dev/null && mv "$LOG_FILE.tmp" "$LOG_FILE" 2>/dev/null
-
-herdr_call() {
-  # Runs Herdr and records a failure in the log so $coco-herdr-plugin:doctor can see it.
-  # The exit code is never propagated. Callers always pass "pane <subcommand>"
-  # first, so $2 is the subcommand named in the log line.
-  local rc=0
-  "$HERDR_BIN_PATH" "$@" >/dev/null 2>&1 || rc=$?
-  [ "$rc" = 0 ] && return 0
-  printf '%s   herdr %s failed rc=%s\n' "$(date '+%H:%M:%S')" "$2" "$rc" >> "$LOG_FILE" 2>/dev/null || true
-}
 
 report() {
   # $1 = state, $2 = optional message
@@ -136,13 +199,22 @@ case "$EVENT" in
         "Permission required:"*) : ;;
         *) needs_user_attention "$MESSAGE" && report blocked "awaiting input" ;;
       esac ;;
-  Stop|SessionEnd)
-      # Cortex fires SessionEnd when a turn ends, while this process is still
-      # in the foreground and the prompt is still open. release-agent here
-      # drops the sidebar row, and autorename then replaces the conversation
-      # title with "cortex". Herdr clears the row once the process has exited
-      # and the pane is back at a shell prompt.
-      report idle ;;
+  Stop)                                    report idle ;;
+  SessionEnd)
+      # Cortex fires SessionEnd on exit and on an in-process session switch
+      # (/new). Releasing now would drop the row and its title on a switch.
+      # Report idle with the seq + 1 reservation already stored, and release from
+      # a detached watcher once the Cortex process ($PPID) exits. Herdr ignores a
+      # release whose seq is not above the last accepted, so the next
+      # SessionStart cancels it. A parent of PID 1 or below means the hook was
+      # reparented, so there is no Cortex process to watch.
+      report idle
+      if [ "$PPID" -gt 1 ] 2>/dev/null; then
+        "$BASH" "$0" __watch "$PPID" "$(( SEQ + 1 ))" </dev/null >/dev/null 2>&1 &
+      else
+        printf '%s   SessionEnd: parent pid %s unusable, no watcher\n' "$(date '+%H:%M:%S')" "$PPID" >> "$LOG_FILE" 2>/dev/null || true
+      fi
+      ;;
   *) : ;;
 esac
 

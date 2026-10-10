@@ -251,7 +251,9 @@ Event mapping:
 | `Notification` for a user question | `blocked` |
 | `Notification` beginning `Permission required:` | ignored |
 
-`SessionEnd` is `idle`, same as `Stop`. Cortex emits it while the prompt is still open. Herdr removes the row after the process exits.
+`SessionEnd` reports `idle`. Cortex fires it on exit and on an in-process session switch such as
+`/new`. The row is released once the Cortex process exits. A session switch keeps the row because the
+next `SessionStart` outranks the pending release.
 
 Two details matter and were both found by live testing:
 
