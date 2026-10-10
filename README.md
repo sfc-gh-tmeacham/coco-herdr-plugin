@@ -280,6 +280,10 @@ Two details matter and were both found by live testing:
   `Notification` is never sent. The event log keeps at most 200 characters of it, and the log
   directory is created with mode `700` on macOS and Linux.
 - They always exit 0. A Herdr outage cannot block a CoCo turn.
+- `SessionEnd` starts one detached watcher process that holds none of the hook's stdio. It exits
+  when a later event raises the seq, when the seq file is removed, or after 24 hours. If the Cortex
+  process exits first, it sends one `release-agent` call, killed after 10 seconds if Herdr does not
+  answer, then exits. No watcher starts when the parent PID is unresolved or 1.
 
 ## Troubleshooting
 
@@ -308,7 +312,8 @@ These need a change to Herdr's Rust source and are out of scope:
 
 Stub tests live in `tests/run.sh` and run both scripts against a fake `herdr`. Run them with
 `bash tests/run.sh` (needs `pwsh` for the Windows script). Live claims below were checked on
-macOS with Herdr 0.8.2 and CoCo CLI 1.1.79.
+macOS with Herdr 0.8.2 and CoCo CLI 1.1.79. The `/exit` and `/new` rows were rechecked for 0.2.4
+with CoCo CLI 1.2.14.
 
 | Claim | Status |
 | --- | --- |
@@ -317,9 +322,11 @@ macOS with Herdr 0.8.2 and CoCo CLI 1.1.79.
 | `idle`, `working`, `blocked` (permission), `blocked` (question), `Stop` from a real CoCo session | Verified |
 | Two CoCo panes reporting independently | Verified |
 | Row removed on real `/exit` | Verified |
+| Row and title kept across `/new` | Verified |
 | Persistence across closing the Herdr client | Verified |
 | Windows hook (`herdr-coco-state.ps1`) produces correct calls for every event | Verified by `tests/run.sh` with PowerShell 7 on macOS |
 | Windows hook on a native Windows install of Herdr and CoCo | Not yet tested |
+| `.sh` under bash 5 (the `EPOCHREALTIME` clock branch) | Not yet tested; only bash 3.2 was available |
 
 ## License
 
